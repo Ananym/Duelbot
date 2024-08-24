@@ -1,0 +1,39 @@
+# Game Rules
+
+- Game is played on a 5 cell line
+- Players start at either end of the line
+- Players select two cards to play each turn, one after the other.  Cards are not revealed until resolved.
+- P1 and P2's first cards are resolved in the first half of the turn, then P2 and P1's second cards are resolved in the second half of the turn.
+- The second card used is locked out for the next turn.
+- If a special card is used, it is removed for the rest of the game.
+- Players are in heaven or earth stance at any given time, and they start in heaven stance
+- Players cannot move past each other, but can move into the same cell - further movement is ignored.
+- Players cannot move off the end of the board - further movement is ignored.
+- Movement is always resolved before attacks within each turn-half.
+- Movement in heaven stance has priority over movement in earth stance.
+- If two players in the same stance move towards each other and would move past each other, they instead end up in the same cell roughly in the middle - favouring the cell closer to the middle if the distance between players is even.
+- Attacks target one or more specific cells in relation to the player, e.g. 2 cells forward, 1 cell forward, or same cell.
+- If two attacks succeed in the same turn-half, nobody takes damage
+- If a player uses counterattack and the other player uses an attack that would hit the enemy, the attacking player instead takes damage.
+- Players receive four standard cards at the start of the game.
+- Some cards have alternate actions, these must be chosen when the card is played.
+- Both players receive one of three special cards at the start, which is not shown to the other player
+- Special cards are removed from the game once used
+- Players have two hitpoints, and lose one if they are hit by an attack without counterattacking.
+- Players lose if they have no hitpoints left
+- If a player changes stance in the first half of the turn, the second half of the turn is resolved with the new stance
+- Some cards require being in a specific stance to be available as a valid choice.
+- "Ahead" means right for p1 and left for p2
+
+# Cards:
+## Standard:
+ - Footwork: Advance 1 cell or Retreat 1 cell
+ - Tactics: Either switch stance or Charge 2 cells forward
+ - High Strike: Requires Heaven, attacks the cell 2 spaces ahead
+ - Low Strike: Requires Earth, attacks the cell 1 space ahead
+ - Balanced Strike: No requirement, hits the same cell as the user
+
+## Special:
+ - Kesa Strike, Requires Heaven stance, hits same cell as the user and the cell 1 space ahead, then switches the user to Earth.
+ - Zan-Tetsu Strike, Requires Earth stance, hits the cells 1 space ahead and 2 spaces ahead, then switches the user to Heaven.
+ - Counterattack, no requirement, if used at the same time as a successful enemy attack, the counterattacker takes no damage and the attacker takes 1 damage.
