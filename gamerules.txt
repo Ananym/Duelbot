@@ -11,7 +11,8 @@
 - Players cannot move off the end of the board - further movement is ignored.
 - Movement is always resolved before attacks within each turn-half.
 - Movement in heaven stance has priority over movement in earth stance.
-- If two players in the same stance move towards each other and would move past each other, they instead end up in the same cell roughly in the middle - favouring the cell closer to the middle if the distance between players is even.
+- Charge always has priority over approach.
+- If two players in the same stance using the same action move towards each other and would move past each other, they instead end up in the same cell roughly in the middle - favouring the cell closer to the middle if the distance between players is even.
 - Attacks target one or more specific cells in relation to the player, e.g. 2 cells forward, 1 cell forward, or same cell.
 - If two attacks succeed in the same turn-half, nobody takes damage
 - If a player uses counterattack and the other player uses an attack that would hit the enemy, the attacking player instead takes damage.
