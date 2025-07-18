@@ -1,40 +1,38 @@
-# this is main.py
 import discord
-from discord import app_commands, Interaction
+from discord import app_commands
 from discord.ext import commands, tasks
-import asyncio
 from game import GameState
-from database_handler import DatabaseHandler
+from database_handler import db
 import logging
+from player_emoji import is_single_emoji
 import sys
 import os
+from rules import rules_txt
+from lobby import (
+    consume_newest_challenge_for_user,
+    consume_existing_challenge,
+    add_new_challenge,
+    cleanup_expired_challenges,
+)
+
+# https://discord.com/oauth2/authorize?client_id=1160688239577931796&permissions=2048&integration_type=0&scope=bot+applications.commands
 
 intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# In-memory stores
-challenges = {}  # {channel_id: {challenger_id: opponent_id}}
 ongoing_matches = {}  # {channel_id: GameState}
-player_timeouts = {}  # {channel_id: {player_id: asyncio.Task}}
-
-# Database handler
-db_handler = DatabaseHandler("state.db")
-
-# Store configured channels
 configured_channels = {}  # {guild_id: channel_id}
 
 for handler in logging.root.handlers[:]:
     logging.root.removeHandler(handler)
 
-# Configure the root logger
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     stream=sys.stdout,
 )
 
-# Now you can use the logger in your code
 logger = logging.getLogger("main")
 
 
@@ -47,27 +45,34 @@ async def on_ready():
         logger.info(f"Synced {len(synced)} command(s)")
     except Exception as e:
         logger.error(f"Error syncing commands: {e}")
+    cleanup_task.start()
+
+
+@tasks.loop(minutes=30)
+async def cleanup_task():
+    cleanup_expired_challenges()
 
 
 def load_configured_channels():
     global configured_channels
-    configured_channels = db_handler.get_configured_channels()
-    logger.info(f"Loaded configured channels from database: {configured_channels}")
+    configured_channels = db.get_configured_channels()
+    logger.info(
+        f"Loaded configured channels from database: {configured_channels}")
 
 
-@bot.tree.command(
-    name="usechannel", description="Set the channel for the bot to listen to"
-)
+@bot.tree.command(name="usechannel",
+                  description="Set the channel for the bot to listen to")
 async def use_channel(interaction: discord.Interaction):
     channel_id = interaction.channel_id
     guild_id = interaction.guild_id
-    db_handler.set_configured_channel(guild_id, channel_id)
+    db.set_configured_channel(guild_id, channel_id)
     configured_channels[guild_id] = channel_id
-    logger.info(f"Updated configured channel for guild {guild_id}: {channel_id}")
+    logger.info(
+        f"Updated configured channel for guild {guild_id}: {channel_id}")
     logger.info(f"Current configured channels: {configured_channels}")
     await interaction.response.send_message(
-        f"Bot will now listen to commands in this channel.", ephemeral=True
-    )
+        f"Duel Bot will now listen to commands in this channel.",
+        ephemeral=True)
 
 
 def is_configured_channel():
@@ -78,15 +83,11 @@ def is_configured_channel():
         configured_channel_id = configured_channels.get(guild_id)
 
         is_configured = channel_id == configured_channel_id
-        logger.debug(
-            f"Checking configured channel - Guild ID: {guild_id}, Channel ID: {channel_id}, Configured Channel ID: {configured_channel_id}, Is configured: {is_configured}"
-        )
 
         if not is_configured:
             if configured_channel_id:
                 configured_channel = interaction.guild.get_channel(
-                    configured_channel_id
-                )
+                    configured_channel_id)
                 if configured_channel:
                     await interaction.response.send_message(
                         f"This command can only be used in the configured channel: {configured_channel.mention}",
@@ -99,7 +100,7 @@ def is_configured_channel():
                     )
             else:
                 await interaction.response.send_message(
-                    "No channel has been configured for commands in this server. Please use `/usechannel` to set one.",
+                    "No channel has been configured for duel commands in this server. Please use `/usechannel` to set one.",
                     ephemeral=True,
                 )
         return is_configured
@@ -114,7 +115,8 @@ async def check_configured_channel(interaction: discord.Interaction) -> bool:
 
     if channel_id != configured_channel_id:
         if configured_channel_id:
-            configured_channel = interaction.guild.get_channel(configured_channel_id)
+            configured_channel = interaction.guild.get_channel(
+                configured_channel_id)
             if configured_channel:
                 await interaction.response.send_message(
                     f"This command can only be used in the configured channel: {configured_channel.mention}",
@@ -134,100 +136,82 @@ async def check_configured_channel(interaction: discord.Interaction) -> bool:
     return True
 
 
-@bot.tree.command(
-    name="challenge", description="Challenge another user to a samurai duel"
-)
-async def challenge(
-    interaction: discord.Interaction, opponent: discord.Member, emoji: str = None
-):
+@bot.tree.command(name="rules", description="Show the rules of the duel")
+@is_configured_channel()
+async def rules(interaction: discord.Interaction):
+    await interaction.response.send_message(content=rules_txt, ephemeral=False)
 
+
+@bot.tree.command(name="accept",
+                  description="Accept your most recent challenge")
+@is_configured_channel()
+async def accept(interaction: discord.Interaction):
     channel_id = interaction.channel_id
-    if channel_id in ongoing_matches:
-        await interaction.followup.send(
-            "A game is already in progress in this channel.", ephemeral=True
-        )
-        return
-
-    if interaction.user == opponent:
-        await interaction.followup.send("You can't challenge yourself!", ephemeral=True)
-        return
-
-    if channel_id not in challenges:
-        challenges[channel_id] = {}
-
-    challenger_id = interaction.user.id
-    opponent_id = opponent.id
-
-    # Check if this is an acceptance of an existing challenge
-    # if (
-    #     challenger_id in challenges[channel_id]
-    #     and opponent_id in challenges[channel_id][challenger_id]
-    # ):
-    #     # Start the game
-    #     logger.debug(
-    #         f"Starting game between {interaction.user.name} and {opponent.name}"
-    #     )
-    #     print("This is normal invocation")
-
-    #     interaction.send(
-    #         "Duel confirmed! This msg is logistically required :)", ephemeral=True
-    #     )
-
-    #     opponent_interaction = challenges[channel_id][challenger_id][
-    #         1
-    #     ]  # Get the stored interaction
-    #     game_state = GameState(
-    #         opponent,
-    #         interaction.user,
-    #         interaction.channel,
-    #         opponent_interaction,
-    #         interaction,
-    #         challenges[channel_id][challenger_id][2],
-    #         emoji,
-    #     )
-    #     ongoing_matches[channel_id] = game_state
-    #     del challenges[channel_id][challenger_id]
-    #     await game_state.run_until_end()
-    #     del ongoing_matches[channel_id]
-    # elif (
-    if (
-        opponent_id in challenges[channel_id]
-        and challenger_id in challenges[channel_id][opponent_id]
-    ):
-        await interaction.response.send_message(
-            "Duel confirmed! This msg is logistically required :)", ephemeral=True
-        )
-        # await interaction.response.defer(ephemeral=True)
-        print("This is reverse invocation")
-        # Start the game (reverse order because the original challenger is now the opponent)
-        challenger_interaction = challenges[channel_id][opponent_id][
-            1
-        ]  # Get the stored interaction
+    challenge = consume_newest_challenge_for_user(interaction.user)
+    if challenge:
+        await interaction.response.send_message("Duel confirmed!",
+                                                ephemeral=True)
         game_state = GameState(
-            opponent,
+            challenge.challenger,
             interaction.user,
             interaction.channel,
-            challenger_interaction,
+            challenge.challenge_interaction,
             interaction,
-            challenges[channel_id][opponent_id][2],
-            emoji,
         )
         ongoing_matches[channel_id] = game_state
-        del challenges[channel_id][opponent_id]
         await game_state.run_until_end()
         del ongoing_matches[channel_id]
     else:
-        # This is a new challenge
-        challenges[channel_id][challenger_id] = (
-            opponent_id,
-            interaction,
-            emoji,
-        )  # Store the challenger's interaction and emoji
         await interaction.response.send_message(
-            f"{interaction.user.mention} has challenged {opponent.mention} to a samurai duel! {opponent.mention}, use /challenge to accept.",
+            "No unexpired challenge found - challenges expire after 5 minutes.  Use /challenge to challenge someone else!",
+            ephemeral=True,
+        )
+
+
+@bot.tree.command(
+    name="challenge",
+    description=
+    "Challenge another user to a samurai duel, or accept an existing challenge",
+)
+@is_configured_channel()
+async def challenge(interaction: discord.Interaction,
+                    opponent: discord.Member):
+    channel_id = interaction.channel_id
+    if channel_id in ongoing_matches:
+        await interaction.response.send_message(
+            "A game is already in progress in this channel.", ephemeral=True)
+        return
+    if interaction.user == opponent:
+        await interaction.response.send_message(
+            "You can't challenge yourself!", ephemeral=True)
+        return
+
+    challenge = consume_existing_challenge(opponent, interaction.user)
+    if challenge:
+        await interaction.response.send_message("Challenge accepted!",
+                                                ephemeral=True)
+        game_state = GameState(
+            challenge.challenger,
+            interaction.user,
+            interaction.channel,
+            challenge.challenge_interaction,
+            interaction,
+        )
+        ongoing_matches[channel_id] = game_state
+        try:
+            await game_state.run_until_end()
+        except Exception as e:
+            logger.error(f"Error running game: {e}")
+            await interaction.channel.send(
+                content="Error while running duel - aborted.")
+        finally:
+            del ongoing_matches[channel_id]
+    else:
+        add_new_challenge(interaction, opponent)
+        await interaction.response.send_message(
+            f"{interaction.user.mention} has challenged {opponent.mention} to a samurai duel! {opponent.mention}, use /accept to accept.",
             ephemeral=False,
         )
-    logger.debug(f"Challenge command completed. Current challenges: {challenges}")
 
 
 # @bot.tree.command(name="forfeit", description="Forfeit the current game")
@@ -269,51 +253,32 @@ async def challenge(
 #     )
 
 
+@bot.tree.command(name="set-emoji",
+                  description="Set the emoji to be your duel champion")
+async def set_emoji(interaction: discord.Interaction, emoji: str):
+    await check_configured_channel(interaction)
+    if not emoji or not is_single_emoji(emoji):
+        await interaction.response.send_message(
+            "Please provide an emoji to set as your champion.", ephemeral=True)
+        return
+    db.set_player_emoji(interaction.user.id, emoji)
+    await interaction.response.send_message(
+        f"Your champion has been set to {emoji}.", ephemeral=True)
+
+
 @bot.tree.command(name="stats", description="Check your duel statistics")
 async def stats(interaction: discord.Interaction):
     await check_configured_channel(interaction)
-    user_stats = db_handler.get_stats(interaction.user.id, interaction.guild.id)
-    total_games = user_stats["wins"] + user_stats["losses"]
-    win_rate = (user_stats["wins"] / total_games * 100) if total_games > 0 else 0
+    user_stats = db.get_stats(interaction.user.id, interaction.guild.id)
+    total_games = user_stats["games_played"]
+    win_rate = (user_stats["wins"] / total_games *
+                100) if total_games > 0 else 0
 
     await interaction.response.send_message(
-        f"Duel Statistics for {interaction.user.mention}:\n"
-        f"Wins: {user_stats['wins']}\n"
-        f"Losses: {user_stats['losses']}\n"
-        f"Total Games: {total_games}\n"
-        f"Win Rate: {win_rate:.2f}%"
-    )
+        f"Duel Statistics for {interaction.user.mention} in {interaction.guild.name}:\n"
+        f"Duels fought: {total_games}\n"
+        f"Victories: {user_stats['wins']}\n"
+        f"Ratio: {win_rate:.2f}%", )
 
 
-# @bot.event
-# async def on_interaction(interaction: discord.Interaction):
-#     if interaction.type == discord.InteractionType.component:
-#         custom_id = interaction.data["custom_id"]
-#         if custom_id.startswith("move_"):
-#             await interaction.response.defer(ephemeral=True)
-
-#             if interaction.channel_id == configured_channels.get(interaction.guild_id):
-#                 try:
-#                     move = custom_id.split("_", 1)[1]
-#                     channel_id = interaction.channel_id
-#                     if channel_id in ongoing_matches:
-#                         game = ongoing_matches[channel_id]
-#                         await game.make_move(interaction.user, move)
-#                     else:
-#                         await interaction.followup.send(
-#                             "There is no ongoing game in this channel.", ephemeral=True
-#                         )
-#                 except Exception as e:
-#                     logging.exception("Error handling move")
-#                     await interaction.followup.send(
-#                         f"An error occurred: {str(e)}", ephemeral=True
-#                     )
-#             else:
-#                 await interaction.followup.send(
-#                     "This command can only be used in the configured channel.",
-#                     ephemeral=True,
-#                 )
-
-
-# Run the bot
 bot.run(os.environ.get("DUELBOT_TOKEN"))

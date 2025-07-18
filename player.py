@@ -1,12 +1,15 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from cards import Stance, Card, AttackCard, MoveAction
 from typing import Optional
 import discord
-import random
+
+tick = "\✔️"
+cross = "\✖"
 
 
 @dataclass
 class Player:
+    member: discord.Member
     cell: int
     special: AttackCard
     name: str
@@ -21,6 +24,7 @@ class Player:
 
     def __init__(
         self,
+        member: discord.Member,
         cell: int,
         special: AttackCard,
         name: str,
@@ -28,6 +32,7 @@ class Player:
         emoji: str,
         initial_challenge: discord.Interaction,
     ):
+        self.member = member
         self.cell = cell
         self.special = special
         self.name = name
@@ -42,8 +47,8 @@ class Player:
 
     def make_state_string(self):
         stanceEmoji = "⚡" if self.stance == Stance.HEAVEN else "🏔"
-        hp = " ".join(["♥" for _ in range(self.hp)])
-        msg = f"{self.emoji} {self.name} | {hp} | {stanceEmoji} {self.stance.value} | {'Special ✖' if self.special_used else 'Special ✔'}"
+        hp = f"♥ {self.hp}"
+        msg = f"{self.emoji} {self.name} | {hp} | {stanceEmoji} {self.stance.value} | 'Special: {cross if self.special_used else tick}"
         if self.locked:
             msg += f" | 🔒 {self.locked.name}"
         return msg

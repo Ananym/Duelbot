@@ -13,8 +13,8 @@ class DatabaseHandler:
             CREATE TABLE IF NOT EXISTS game_stats (
                 user_id INTEGER,
                 server_id INTEGER,
+                games_played INTEGER DEFAULT 0,
                 wins INTEGER DEFAULT 0,
-                losses INTEGER DEFAULT 0,
                 PRIMARY KEY (user_id, server_id)
             )
         """
@@ -27,40 +27,107 @@ class DatabaseHandler:
             )
         """
         )
-        self.conn.commit()
-
-    def update_stats(self, user_id, server_id, is_win):
         self.cursor.execute(
             """
-            INSERT INTO game_stats (user_id, server_id, wins, losses)
-            VALUES (?, ?, ?, ?)
+            CREATE TABLE IF NOT EXISTS player_emoji (
+                player_id INTEGER PRIMARY KEY,
+                emoji TEXT
+            )
+        """
+        )
+        self.conn.commit()
+
+    def record_game_win(self, winning_member, losing_member):
+        self.cursor.execute(
+            """
+            INSERT INTO game_stats (user_id, server_id, games_played, wins)
+            VALUES (?, ?, 1, 1)
             ON CONFLICT (user_id, server_id) DO UPDATE SET
-            wins = wins + ?,
-            losses = losses + ?
+            games_played = games_played + 1,
+            wins = wins + 1
         """,
             (
-                user_id,
-                server_id,
-                1 if is_win else 0,
-                0 if is_win else 1,
-                1 if is_win else 0,
-                0 if is_win else 1,
+                winning_member.id,
+                winning_member.guild.id,
             ),
+        )
+
+        self.cursor.execute(
+            """
+            INSERT INTO game_stats (user_id, server_id, games_played, wins)
+            VALUES (?, ?, 1, 0)
+            ON CONFLICT (user_id, server_id) DO UPDATE SET
+            games_played = games_played + 1
+        """,
+            (
+                losing_member.id,
+                losing_member.guild.id,
+            ),
+        )
+        self.conn.commit()
+
+    def record_double_timeout(self, p1_member, p2_member):
+        self.cursor.execute(
+            """
+            INSERT INTO game_stats (user_id, server_id, games_played, wins)
+            VALUES (?, ?, 1, 0)
+            ON CONFLICT (user_id, server_id) DO UPDATE SET
+            games_played = games_played + 1
+        """,
+            (
+                p1_member.id,
+                p1_member.guild.id,
+            ),
+        )
+        self.cursor.execute(
+            """
+            INSERT INTO game_stats (user_id, server_id, games_played, wins)
+            VALUES (?, ?, 1, 0)
+            ON CONFLICT (user_id, server_id) DO UPDATE SET
+            games_played = games_played + 1
+        """,
+            (
+                p2_member.id,
+                p2_member.guild.id,
+            ),
+        )
+        self.conn.commit()
+
+    def get_player_emoji(self, player_id):
+        self.cursor.execute(
+            """
+            SELECT emoji FROM player_emoji
+            WHERE player_id = ?
+        """,
+            (player_id,),
+        )
+        result = self.cursor.fetchone()
+        if result:
+            return result[0]
+        return None
+
+    def set_player_emoji(self, player_id, emoji):
+        self.cursor.execute(
+            """
+            INSERT OR REPLACE INTO player_emoji (player_id, emoji)
+            VALUES (?, ?)
+        """,
+            (player_id, emoji),
         )
         self.conn.commit()
 
     def get_stats(self, user_id, server_id):
         self.cursor.execute(
             """
-            SELECT wins, losses FROM game_stats
+            SELECT games_played, wins FROM game_stats 
             WHERE user_id = ? AND server_id = ?
         """,
             (user_id, server_id),
         )
         result = self.cursor.fetchone()
         if result:
-            return {"wins": result[0], "losses": result[1]}
-        return {"wins": 0, "losses": 0}
+            return {"games_played": result[0], "wins": result[1]}
+        return {"games_played": 0, "wins": 0}
 
     def set_configured_channel(self, guild_id, channel_id):
         self.cursor.execute(
@@ -78,3 +145,6 @@ class DatabaseHandler:
 
     def close(self):
         self.conn.close()
+
+
+db = DatabaseHandler("state.db")

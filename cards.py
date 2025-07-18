@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
+from typing import Optional
 
 
 class Stance(Enum):
@@ -29,6 +30,7 @@ class AttackCard(Card):
     requires_stance: Stance
     changes_stance: bool
     button_colour: str
+    emoji: Optional[str]
 
 
 @dataclass
@@ -43,7 +45,7 @@ class MoveAction:
     def __lt__(self, other):
         if not isinstance(other, MoveAction):
             return NotImplemented
-        return self.name < other.name
+        return self.button_text < other.button_text
 
 
 @dataclass
@@ -54,7 +56,8 @@ class MoveCard(Card):
 ############################ special
 zantetsu = AttackCard(
     name="Zan-Tetsu Strike",
-    button_text="Zan-Tetsu Strike (2 & 3)",
+    emoji="🏔",
+    button_text="Zan-Tetsu Strike (2 & 3, ->Heaven)",
     is_special=True,
     success_msg="{a} rises and unleashes a devastating Zan-Tetsu strike, and {b} takes the full force of the blow!",
     miss_msg="{a} rises and attempts a Zan-Tetsu strike, but {b} deftly evades!",
@@ -68,7 +71,8 @@ zantetsu = AttackCard(
 
 kesa = AttackCard(
     name="Kesa Strike",
-    button_text="Kesa Strike (same cell & 1)",
+    emoji="⚡",
+    button_text="Kesa Strike (same cell & 1, ->Earth)",
     is_special=True,
     success_msg="{a} drops low and launches a piercing Kesa strike! {b} can't turn it aside!",
     miss_msg="{a} drops low and attempts a Kesa strike, but {b} manages to evade!",
@@ -84,6 +88,7 @@ counter = AttackCard(
     name="Counterattack",
     button_text="Counterattack",
     is_special=True,
+    emoji=None,
     success_msg=None,
     miss_msg=None,
     counter_msg=None,
@@ -98,6 +103,7 @@ counter = AttackCard(
 
 low_strike = AttackCard(
     name="Low Strike",
+    emoji="🏔",
     button_text="Low Strike (1)",
     is_special=False,
     success_msg="{a} throws out a swift low strike, and the attack finds its mark!",
@@ -112,6 +118,7 @@ low_strike = AttackCard(
 
 high_strike = AttackCard(
     name="High Strike",
+    emoji="⚡",
     button_text="High Strike (2)",
     is_special=False,
     success_msg="{a} brings down a fierce high strike directly onto {b}!",
@@ -128,7 +135,8 @@ balanced_strike = AttackCard(
     name="Balanced Strike",
     button_text="Balanced Strike (same cell)",
     is_special=False,
-    success_msg="{a} delivers a balanced strike!",
+    emoji=None,
+    success_msg="{a} levies a balanced strike. and scores a clean hit on {b}!",
     miss_msg="{a} attempts a balanced strike, but {b} dodges!",
     counter_msg="{a} delivers a balanced strike...",
     clash_msg="{a} delivers a balanced strike...",
@@ -167,7 +175,7 @@ charge = MoveAction(
 change_stance = MoveAction(
     name="Change Stance",
     magnitude=0,
-    msg="{a} shifts into {other_stance} stance.",
+    msg="{a} shifts into {stance} stance.",
     button_colour="blue",
     changes_stance=True,
     button_text="Tactics: Change Stance",
