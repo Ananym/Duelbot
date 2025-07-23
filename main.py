@@ -163,7 +163,7 @@ async def accept(interaction: discord.Interaction):
         del ongoing_matches[channel_id]
     else:
         await interaction.response.send_message(
-            "No unexpired challenge found - challenges expire after 5 minutes.  Use /challenge to challenge someone else!",
+            "No unexpired challenge found - challenges expire after 30 minutes.  Use /challenge to challenge someone else!",
             ephemeral=True,
         )
 

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import discord
 from typing import Dict, TypeAlias
 
-challenge_validity = timedelta(minutes=5)
+challenge_validity = timedelta(minutes=30)
 
 
 @dataclass
@@ -106,8 +106,16 @@ def consume_newest_challenge_for_user(user: discord.Member):
 
 
 def cleanup_expired_challenges():
+    expired_challenges = []
+    
     for server_id, member_dict in lobby.items():
         for opponent_id, challenger_dict in member_dict.items():
             for challenger_id, challenge in challenger_dict.items():
                 if challenge.is_expired():
-                    del lobby[server_id][opponent_id][challenger_id]
+                    expired_challenges.append((server_id, opponent_id, challenger_id))
+    
+    for server_id, opponent_id, challenger_id in expired_challenges:
+        if (server_id in lobby and 
+            opponent_id in lobby[server_id] and 
+            challenger_id in lobby[server_id][opponent_id]):
+            del lobby[server_id][opponent_id][challenger_id]
