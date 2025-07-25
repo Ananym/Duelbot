@@ -48,6 +48,22 @@ async def on_ready():
     cleanup_task.start()
 
 
+@bot.tree.error
+async def on_app_command_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
+    if isinstance(error, app_commands.CheckFailure):
+        # CheckFailures are already handled by our check functions with appropriate user messages
+        # No need to log these as errors since they're expected behavior
+        return
+    else:
+        # Log other unexpected errors
+        logger.error(f"Unhandled app command error in {interaction.command.name if interaction.command else 'Unknown'}: {error}")
+        if not interaction.response.is_done():
+            await interaction.response.send_message(
+                "An unexpected error occurred. Please try again later.", 
+                ephemeral=True
+            )
+
+
 @tasks.loop(minutes=30)
 async def cleanup_task():
     cleanup_expired_challenges()
@@ -253,7 +269,7 @@ async def challenge(interaction: discord.Interaction,
 #     )
 
 
-@bot.tree.command(name="set-emoji",
+@bot.tree.command(name="setemoji",
                   description="Set the emoji to be your duel champion")
 async def set_emoji(interaction: discord.Interaction, emoji: str):
     await check_configured_channel(interaction)
