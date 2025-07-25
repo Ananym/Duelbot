@@ -107,6 +107,9 @@ class GameState:
         else:
             return "\_"
 
+    def get_board_state_string(self):
+        return " ".join([self.symbol_for_cell(i) for i in range(self.board_size)])
+
     def make_game_state_message(self):
         is_first_turn = self.turn == 0
 
@@ -121,7 +124,7 @@ class GameState:
 
         print([self.symbol_for_cell(i) for i in range(self.board_size)])
 
-        board = " ".join([self.symbol_for_cell(i) for i in range(self.board_size)])
+        board = self.get_board_state_string()
         msg += f"{board}\n\n"
         msg += self.p1.make_state_string() + "\n"
         msg += self.p2.make_state_string()
@@ -370,7 +373,9 @@ class GameState:
     def append_movement_to_summary(self, player, play):
         if play:
             is_p1 = player is self.p1
-            self.turn_summary.append(self.tp(play.msg, is_p1))
+            movement_msg = self.tp(play.msg, is_p1)
+            board_state = self.get_board_state_string()
+            self.turn_summary.append(f"{movement_msg} {board_state}")
 
     def resolve_movement(self, p1play, p2play):
         p1move = p1play if p1play in move_actions else None

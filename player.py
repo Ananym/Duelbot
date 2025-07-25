@@ -48,7 +48,7 @@ class Player:
     def make_state_string(self):
         stanceEmoji = "⚡" if self.stance == Stance.HEAVEN else "🏔"
         hp = f"♥ {self.hp}"
-        msg = f"{self.emoji} {self.name} | {hp} | {stanceEmoji} {self.stance.value} | 'Special: {cross if self.special_used else tick}"
+        msg = f"{self.emoji} {self.name} | {hp} | {stanceEmoji} {self.stance.value} | Special: {cross if self.special_used else tick}"
         if self.locked:
             msg += f" | 🔒 {self.locked.name}"
         return msg
