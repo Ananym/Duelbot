@@ -2,7 +2,10 @@
 
 A Discord bot that implements Kiri-ai (https://boardgamegeek.com/boardgame/387769/kiri-ai-the-duel), a turn-based samurai dueling game. Players challenge each other to tactical combat on a linear board using cards to represent movement, attacks, and stance changes.
 
-## How it Works
+Add it to your server here: https://discord.com/oauth2/authorize?client_id=1160688239577931796&permissions=2048&integration_type=0&scope=bot+applications.commands
+
+
+## Features
 
 - **Discord.py bot** with slash commands for issuing and accepting challenges
 - **SQLite database** stores player stats, configured channels, and chosen player avatar emojis
