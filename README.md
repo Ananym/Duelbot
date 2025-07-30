@@ -30,3 +30,11 @@ Publishers: Mugen Gaming (JP), Lucky Duck Games (US)
 1. Install dependencies: `pip install -r requirements.txt`
 2. Set environment variable `DUELBOT_TOKEN` with your Discord bot token
 3. Run: `python main.py`
+
+## Screenshots
+
+![Full game](screenshot.png)
+*Full log of a completed game*
+
+![Game Controls](screenshot_inprogress.png)
+*Controls shown during the game*
