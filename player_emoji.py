@@ -1,4 +1,4 @@
-from database_handler import db
+from database import db
 import random
 
 emoji = ["🐻", "🐯", "🐲", "🦅", "🐍", "🦉", "🐗", "🐸", "🐺", "🦏", "🐊", "🦎", "🐢"]
@@ -41,17 +41,15 @@ def is_single_emoji(string):
     if len(string) == 1:
         return unicodedata.category(string) in ["So", "Sk"]
     if len(string) == 2 and all(
-        unicodedata.name(c).startswith("REGIONAL INDICATOR SYMBOL LETTER")
-        for c in string
-    ):
+            unicodedata.name(c).startswith("REGIONAL INDICATOR SYMBOL LETTER")
+            for c in string):
         return True
     if len(string) > 1:
         base = string[0]
         if unicodedata.category(base) in ["So", "Sk"]:
             for modifier in string[1:]:
                 if unicodedata.name(modifier).startswith(
-                    ("EMOJI MODIFIER", "ZERO WIDTH JOINER")
-                ):
+                    ("EMOJI MODIFIER", "ZERO WIDTH JOINER")):
                     continue
                 else:
                     return False

@@ -1,4 +1,4 @@
-from database_handler import db
+from database import db
 import random
 import asyncio
 import discord
@@ -67,9 +67,11 @@ class GameState:
         self.channel = channel
         self.turn_summary = []
         p1_special = random.choice(special_attack_cards)
-        p2_special = random.choice([s for s in special_attack_cards if s != p1_special])
+        p2_special = random.choice(
+            [s for s in special_attack_cards if s != p1_special])
 
-        (p1_emoji, p2_emoji) = player_emoji.get_emoji_for_game(player1.id, player2.id)
+        (p1_emoji,
+         p2_emoji) = player_emoji.get_emoji_for_game(player1.id, player2.id)
 
         self.p1 = Player(
             member=player1,
@@ -108,7 +110,8 @@ class GameState:
             return "\_"
 
     def get_board_state_string(self):
-        return " ".join([self.symbol_for_cell(i) for i in range(self.board_size)])
+        return " ".join(
+            [self.symbol_for_cell(i) for i in range(self.board_size)])
 
     def make_game_state_message(self):
         is_first_turn = self.turn == 0
@@ -149,19 +152,16 @@ class GameState:
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         if isinstance(results[0], TimeoutError) and isinstance(
-            results[1], TimeoutError
-        ):
+                results[1], TimeoutError):
             gameResult = GameResult(None, None, True, False)
             await self.end_game(gameResult)
             return gameResult
 
         elif isinstance(results[0], Exception) and not isinstance(
-            results[0], TimeoutError
-        ):
+                results[0], TimeoutError):
             raise results[0]
         elif isinstance(results[1], Exception) and not isinstance(
-            results[1], TimeoutError
-        ):
+                results[1], TimeoutError):
             raise results[1]
         elif isinstance(results[0], TimeoutError):
             gameResult = GameResult(self.p1, self.p2, True, False)
@@ -212,7 +212,8 @@ class GameState:
             )
         else:
             db.record_game_win(gr.winner.member, gr.loser.member)
-            await self.game_state_msg.edit(content=self.make_game_state_message())
+            await self.game_state_msg.edit(
+                content=self.make_game_state_message())
             await self.channel.send(
                 f"{gr.winner.emoji} {gr.winner.mention} dealt the final blow! {gr.loser.emoji}{gr.loser.mention} has been defeated!"
             )
@@ -242,19 +243,20 @@ class GameState:
         if p1success and p2success:
             self.turn_summary.append(self.tp(p1play.clash_msg, True))
             self.turn_summary.append(self.tp(p2play.clash_msg, False))
-            self.turn_summary.append("Sparks fly as the blades clash! No damage!")
+            self.turn_summary.append(
+                "Sparks fly as the blades clash! No damage!")
         # counter by 2
         elif p1success and p2counter:
             self.turn_summary.append(self.tp(p1play.counter_msg, True))
             self.turn_summary.append(
-                f"-- but {self.p2.name} reverses the blow with a perfect counter! {self.p2.name} takes the hit!"
+                f"-- but {self.p2.name} reverses the blow with a perfect counter! {self.p1.name} takes the hit!"
             )
             self.p1.take_hit()
         # counter by 1
         elif p2success and p1counter:
             self.turn_summary.append(self.tp(p2play.counter_msg, False))
             self.turn_summary.append(
-                f"-- but {self.p1.name} reverses the blow with a perfect counter! {self.p1.name} takes the hit!"
+                f"-- but {self.p1.name} reverses the blow with a perfect counter! {self.p2.name} takes the hit!"
             )
             self.p2.take_hit()
         elif p2counter and not p1attacked:
@@ -297,18 +299,20 @@ class GameState:
         # special used handling isn't necessary because it's done at point of move choice
 
         if p1attacked and p1play.changes_stance:
-            self.p1.stance = (
-                Stance.HEAVEN if self.p1.stance is Stance.EARTH else Stance.EARTH
+            self.p1.stance = (Stance.HEAVEN if self.p1.stance is Stance.EARTH
+                              else Stance.EARTH)
+            print(
+                f"p1 stance is now {self.p1.stance} due to a stance change attack"
             )
-            print(f"p1 stance is now {self.p1.stance} due to a stance change attack")
             self.turn_summary.append(
                 f"{self.p1.name}'s technique leaves them in {self.p1.stance.value} stance."
             )
         if p2attacked and p2play.changes_stance:
-            self.p2.stance = (
-                Stance.HEAVEN if self.p2.stance is Stance.EARTH else Stance.EARTH
+            self.p2.stance = (Stance.HEAVEN if self.p2.stance is Stance.EARTH
+                              else Stance.EARTH)
+            print(
+                f"p2 stance is now {self.p2.stance} due to a stance change attack"
             )
-            print(f"p2 stance is now {self.p2.stance} due to a stance change attack")
             self.turn_summary.append(
                 f"{self.p2.name}'s technique leaves them in {self.p2.stance.value} stance."
             )
@@ -316,19 +320,20 @@ class GameState:
         if not is_first_half_of_turn:
             p1card = self.get_card_played(self.p1, False)
             p2card = self.get_card_played(self.p2, False)
-            self.p1.lock(p1card if p1card not in special_attack_cards else None)
-            self.p2.lock(p2card if p2card not in special_attack_cards else None)
+            self.p1.lock(p1card if p1card not in
+                         special_attack_cards else None)
+            self.p2.lock(p2card if p2card not in
+                         special_attack_cards else None)
 
     def tp(self, template_string, is_p1):
         a = self.p1 if is_p1 else self.p2
         b = self.p2 if is_p1 else self.p1
         other_stance = Stance.EARTH if a.stance is Stance.HEAVEN else Stance.HEAVEN
-        return (
-            template_string.replace("{a}", a.name)
-            .replace("{b}", b.name)
-            .replace("{other_stance}", other_stance.value)
-            .replace("{stance}", a.stance.value)
-        )
+        return (template_string.replace("{a}",
+                                        a.name).replace("{b}", b.name).replace(
+                                            "{other_stance}",
+                                            other_stance.value).replace(
+                                                "{stance}", a.stance.value))
 
     def does_attack_succeed(self, is_p1, card):
         print(
@@ -394,44 +399,40 @@ class GameState:
         if self.p1.stance != self.p2.stance:
             if self.p1.stance == Stance.HEAVEN:
                 # p1 moves first
-                self.p1.cell = self.clamp(self.p1.cell + p1magnitude, 0, self.p2.cell)
+                self.p1.cell = self.clamp(self.p1.cell + p1magnitude, 0,
+                                          self.p2.cell)
                 if p1change_stance:
-                    self.p1.stance = (
-                        Stance.HEAVEN if self.p1.stance is Stance.EARTH else Stance.EARTH
-                    )
+                    self.p1.stance = (Stance.HEAVEN if self.p1.stance
+                                      is Stance.EARTH else Stance.EARTH)
                     print(
                         f"p1 stance is now {self.p1.stance} due to a change stance action"
                     )
                 self.append_movement_to_summary(self.p1, p1move)
-                self.p2.cell = self.clamp(
-                    self.p2.cell - p2magnitude, self.p1.cell, self.board_size - 1
-                )
+                self.p2.cell = self.clamp(self.p2.cell - p2magnitude,
+                                          self.p1.cell, self.board_size - 1)
                 if p2change_stance:
-                    self.p2.stance = (
-                        Stance.HEAVEN if self.p2.stance is Stance.EARTH else Stance.EARTH
-                    )
+                    self.p2.stance = (Stance.HEAVEN if self.p2.stance
+                                      is Stance.EARTH else Stance.EARTH)
                     print(
                         f"p2 stance is now {self.p2.stance} due to a change stance action"
                     )
                 self.append_movement_to_summary(self.p2, p2move)
             else:
                 # p2 moves first
-                self.p2.cell = self.clamp(
-                    self.p2.cell - p2magnitude, self.p1.cell, self.board_size - 1
-                )
+                self.p2.cell = self.clamp(self.p2.cell - p2magnitude,
+                                          self.p1.cell, self.board_size - 1)
                 if p2change_stance:
-                    self.p2.stance = (
-                        Stance.HEAVEN if self.p2.stance is Stance.EARTH else Stance.EARTH
-                    )
+                    self.p2.stance = (Stance.HEAVEN if self.p2.stance
+                                      is Stance.EARTH else Stance.EARTH)
                     print(
                         f"p2 stance is now {self.p2.stance} due to a change stance action"
                     )
                 self.append_movement_to_summary(self.p2, p2move)
-                self.p1.cell = self.clamp(self.p1.cell + p1magnitude, 0, self.p2.cell)
+                self.p1.cell = self.clamp(self.p1.cell + p1magnitude, 0,
+                                          self.p2.cell)
                 if p1change_stance:
-                    self.p1.stance = (
-                        Stance.HEAVEN if self.p1.stance is Stance.EARTH else Stance.EARTH
-                    )
+                    self.p1.stance = (Stance.HEAVEN if self.p1.stance
+                                      is Stance.EARTH else Stance.EARTH)
                     print(
                         f"p1 stance is now {self.p1.stance} due to a change stance action"
                     )
@@ -441,47 +442,43 @@ class GameState:
             # Priority based on magnitude: 2 > 1/-1 > 0
             p1priority = abs(p1magnitude) if p1magnitude != 0 else 0
             p2priority = abs(p2magnitude) if p2magnitude != 0 else 0
-            
+
             if p1priority > p2priority:
                 # p1 has higher priority, moves first
-                self.p1.cell = self.clamp(self.p1.cell + p1magnitude, 0, self.p2.cell)
+                self.p1.cell = self.clamp(self.p1.cell + p1magnitude, 0,
+                                          self.p2.cell)
                 if p1change_stance:
-                    self.p1.stance = (
-                        Stance.HEAVEN if self.p1.stance is Stance.EARTH else Stance.EARTH
-                    )
+                    self.p1.stance = (Stance.HEAVEN if self.p1.stance
+                                      is Stance.EARTH else Stance.EARTH)
                     print(
                         f"p1 stance is now {self.p1.stance} due to a change stance action"
                     )
                 self.append_movement_to_summary(self.p1, p1move)
-                self.p2.cell = self.clamp(
-                    self.p2.cell - p2magnitude, self.p1.cell, self.board_size - 1
-                )
+                self.p2.cell = self.clamp(self.p2.cell - p2magnitude,
+                                          self.p1.cell, self.board_size - 1)
                 if p2change_stance:
-                    self.p2.stance = (
-                        Stance.HEAVEN if self.p2.stance is Stance.EARTH else Stance.EARTH
-                    )
+                    self.p2.stance = (Stance.HEAVEN if self.p2.stance
+                                      is Stance.EARTH else Stance.EARTH)
                     print(
                         f"p2 stance is now {self.p2.stance} due to a change stance action"
                     )
                 self.append_movement_to_summary(self.p2, p2move)
             elif p2priority > p1priority:
                 # p2 has higher priority, moves first
-                self.p2.cell = self.clamp(
-                    self.p2.cell - p2magnitude, self.p1.cell, self.board_size - 1
-                )
+                self.p2.cell = self.clamp(self.p2.cell - p2magnitude,
+                                          self.p1.cell, self.board_size - 1)
                 if p2change_stance:
-                    self.p2.stance = (
-                        Stance.HEAVEN if self.p2.stance is Stance.EARTH else Stance.EARTH
-                    )
+                    self.p2.stance = (Stance.HEAVEN if self.p2.stance
+                                      is Stance.EARTH else Stance.EARTH)
                     print(
                         f"p2 stance is now {self.p2.stance} due to a change stance action"
                     )
                 self.append_movement_to_summary(self.p2, p2move)
-                self.p1.cell = self.clamp(self.p1.cell + p1magnitude, 0, self.p2.cell)
+                self.p1.cell = self.clamp(self.p1.cell + p1magnitude, 0,
+                                          self.p2.cell)
                 if p1change_stance:
-                    self.p1.stance = (
-                        Stance.HEAVEN if self.p1.stance is Stance.EARTH else Stance.EARTH
-                    )
+                    self.p1.stance = (Stance.HEAVEN if self.p1.stance
+                                      is Stance.EARTH else Stance.EARTH)
                     print(
                         f"p1 stance is now {self.p1.stance} due to a change stance action"
                     )
@@ -489,11 +486,8 @@ class GameState:
             else:
                 # Same priority: simultaneous movement
                 # if would overlap, set to midpoint
-                if (
-                    p1magnitude > 0
-                    and p2magnitude > 0
-                    and self.moves_would_pass(p1magnitude, p2magnitude)
-                ):
+                if (p1magnitude > 0 and p2magnitude > 0
+                        and self.moves_would_pass(p1magnitude, p2magnitude)):
                     midpoint = self.find_midpoint()
                     self.p1.cell = midpoint
                     self.p2.cell = midpoint
@@ -501,22 +495,21 @@ class GameState:
                     self.append_movement_to_summary(self.p2, p2move)
                 else:
                     # simultaneous movement without overlap
-                    self.p1.cell = self.clamp(self.p1.cell + p1magnitude, 0, self.p2.cell)
+                    self.p1.cell = self.clamp(self.p1.cell + p1magnitude, 0,
+                                              self.p2.cell)
                     if p1change_stance:
-                        self.p1.stance = (
-                            Stance.HEAVEN if self.p1.stance is Stance.EARTH else Stance.EARTH
-                        )
+                        self.p1.stance = (Stance.HEAVEN if self.p1.stance
+                                          is Stance.EARTH else Stance.EARTH)
                         print(
                             f"p1 stance is now {self.p1.stance} due to a change stance action"
                         )
                     self.append_movement_to_summary(self.p1, p1move)
-                    self.p2.cell = self.clamp(
-                        self.p2.cell - p2magnitude, self.p1.cell, self.board_size - 1
-                    )
+                    self.p2.cell = self.clamp(self.p2.cell - p2magnitude,
+                                              self.p1.cell,
+                                              self.board_size - 1)
                     if p2change_stance:
-                        self.p2.stance = (
-                            Stance.HEAVEN if self.p2.stance is Stance.EARTH else Stance.EARTH
-                        )
+                        self.p2.stance = (Stance.HEAVEN if self.p2.stance
+                                          is Stance.EARTH else Stance.EARTH)
                         print(
                             f"p2 stance is now {self.p2.stance} due to a change stance action"
                         )
@@ -548,24 +541,19 @@ class GameState:
 
         playerStance = player.stance
         if will_switch_stance:
-            playerStance = (
-                Stance.HEAVEN if playerStance == Stance.EARTH else Stance.EARTH
-            )
+            playerStance = (Stance.HEAVEN
+                            if playerStance == Stance.EARTH else Stance.EARTH)
 
         # Get all standard attack cards - locked card + unused special card - first play
         available_attack_cards = [
-            c
-            for c in attack_cards
-            if player.locked is not c
-            and not c.is_special
-            and c is not first_card_played
+            c for c in attack_cards if player.locked is not c
+            and not c.is_special and c is not first_card_played
         ]
         if not player.special_used:
             available_attack_cards.append(player.special)
         # filter out off-stance cards
         available_attack_cards = [
-            c
-            for c in available_attack_cards
+            c for c in available_attack_cards
             if c.requires_stance == playerStance or c.requires_stance == None
         ]
         available_attack_cards.sort()
@@ -578,13 +566,11 @@ class GameState:
         # )
 
         available_move_cards = [
-            c
-            for c in move_cards
+            c for c in move_cards
             if player.locked is not c and c is not first_card_played
         ]
         available_move_actions = list(
-            chain(*[move.actions for move in available_move_cards])
-        )
+            chain(*[move.actions for move in available_move_cards]))
         available_move_actions.sort()
         print([c.button_text for c in available_move_actions])
 
@@ -609,11 +595,8 @@ class GameState:
 
             emoji_str = None
             if play in move_actions:
-                emoji_str = (
-                    p1move_emoji_dict[play.magnitude]
-                    if is_p1
-                    else p2move_emoji_dict[play.magnitude]
-                )
+                emoji_str = (p1move_emoji_dict[play.magnitude]
+                             if is_p1 else p2move_emoji_dict[play.magnitude])
             elif play.emoji is not None:
                 emoji_str = play.emoji
 
@@ -638,12 +621,10 @@ class GameState:
         first_message = None
         if is_first_response:
             first_message = await root_interaction.response.send_message(
-                first_header, view=first_view, ephemeral=True
-            )
+                first_header, view=first_view, ephemeral=True)
         else:
             first_message = await root_interaction.followup.send(
-                first_header, view=first_view, ephemeral=True
-            )
+                first_header, view=first_view, ephemeral=True)
         first_play = await first_view.wait_for_value()
         player.add_queued_play(first_play)
 
@@ -656,7 +637,8 @@ class GameState:
 
         second_header = f"{special_info}First Move: {first_play.name}\n{player.emoji} Choose second move:"
 
-        second_view = self.make_play_selection_view(player, will_change_stance, is_p1)
+        second_view = self.make_play_selection_view(player, will_change_stance,
+                                                    is_p1)
         await first_message.edit(content=second_header, view=second_view)
         second_play = await second_view.wait_for_value()
         if second_play == None:

@@ -1,15 +1,15 @@
 import sqlite3
 
 
-class DatabaseHandler:
+class Database:
+
     def __init__(self, db_name):
         self.conn = sqlite3.connect(db_name)
         self.cursor = self.conn.cursor()
         self.create_tables()
 
     def create_tables(self):
-        self.cursor.execute(
-            """
+        self.cursor.execute("""
             CREATE TABLE IF NOT EXISTS game_stats (
                 user_id INTEGER,
                 server_id INTEGER,
@@ -17,24 +17,19 @@ class DatabaseHandler:
                 wins INTEGER DEFAULT 0,
                 PRIMARY KEY (user_id, server_id)
             )
-        """
-        )
-        self.cursor.execute(
-            """
+        """)
+        self.cursor.execute("""
             CREATE TABLE IF NOT EXISTS configured_channels (
                 guild_id INTEGER PRIMARY KEY,
                 channel_id INTEGER
             )
-        """
-        )
-        self.cursor.execute(
-            """
+        """)
+        self.cursor.execute("""
             CREATE TABLE IF NOT EXISTS player_emoji (
                 player_id INTEGER PRIMARY KEY,
                 emoji TEXT
             )
-        """
-        )
+        """)
         self.conn.commit()
 
     def record_game_win(self, winning_member, losing_member):
@@ -99,7 +94,7 @@ class DatabaseHandler:
             SELECT emoji FROM player_emoji
             WHERE player_id = ?
         """,
-            (player_id,),
+            (player_id, ),
         )
         result = self.cursor.fetchone()
         if result:
@@ -140,11 +135,12 @@ class DatabaseHandler:
         self.conn.commit()
 
     def get_configured_channels(self):
-        self.cursor.execute("SELECT guild_id, channel_id FROM configured_channels")
+        self.cursor.execute(
+            "SELECT guild_id, channel_id FROM configured_channels")
         return dict(self.cursor.fetchall())
 
     def close(self):
         self.conn.close()
 
 
-db = DatabaseHandler("state.db")
+db = Database("state.db")

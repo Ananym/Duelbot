@@ -2,7 +2,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands, tasks
 from game import GameState
-from database_handler import db
+from database import db
 import logging
 from player_emoji import is_single_emoji
 import sys
@@ -49,19 +49,21 @@ async def on_ready():
 
 
 @bot.tree.error
-async def on_app_command_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
+async def on_app_command_error(interaction: discord.Interaction,
+                               error: app_commands.AppCommandError):
     if isinstance(error, app_commands.CheckFailure):
         # CheckFailures are already handled by our check functions with appropriate user messages
         # No need to log these as errors since they're expected behavior
         return
     else:
         # Log other unexpected errors
-        logger.error(f"Unhandled app command error in {interaction.command.name if interaction.command else 'Unknown'}: {error}")
+        logger.error(
+            f"Unhandled app command error in {interaction.command.name if interaction.command else 'Unknown'}: {error}"
+        )
         if not interaction.response.is_done():
             await interaction.response.send_message(
-                "An unexpected error occurred. Please try again later.", 
-                ephemeral=True
-            )
+                "An unexpected error occurred. Please try again later.",
+                ephemeral=True)
 
 
 @tasks.loop(minutes=30)
