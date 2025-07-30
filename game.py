@@ -241,60 +241,60 @@ class GameState:
 
         # clash
         if p1success and p2success:
-            self.turn_summary.append(self.tp(p1play.clash_msg, True))
-            self.turn_summary.append(self.tp(p2play.clash_msg, False))
+            self.turn_summary.append(self.tp_with_emoji(p1play.clash_msg, True))
+            self.turn_summary.append(self.tp_with_emoji(p2play.clash_msg, False))
             self.turn_summary.append(
                 "Sparks fly as the blades clash! No damage!")
         # counter by 2
         elif p1success and p2counter:
-            self.turn_summary.append(self.tp(p1play.counter_msg, True))
+            self.turn_summary.append(self.tp_with_emoji(p1play.counter_msg, True))
             self.turn_summary.append(
                 f"-- but {self.p2.name} reverses the blow with a perfect counter! {self.p1.name} takes the hit!"
             )
             self.p1.take_hit()
         # counter by 1
         elif p2success and p1counter:
-            self.turn_summary.append(self.tp(p2play.counter_msg, False))
+            self.turn_summary.append(self.tp_with_emoji(p2play.counter_msg, False))
             self.turn_summary.append(
                 f"-- but {self.p1.name} reverses the blow with a perfect counter! {self.p2.name} takes the hit!"
             )
             self.p2.take_hit()
         elif p2counter and not p1attacked:
             self.turn_summary.append(
-                f"{self.p2.name} braces to counter an attack that never comes!"
+                f"{self.p2.emoji} {self.p2.name} braces to counter an attack that never comes!"
             )
         elif p1counter and not p2attacked:
             self.turn_summary.append(
-                f"{self.p1.name} braces to counter an attack that never comes!"
+                f"{self.p1.emoji} {self.p1.name} braces to counter an attack that never comes!"
             )
         elif p2counter and p1attacked and not p1success:
-            self.turn_summary.append(self.tp(p1play.counter_msg, True))
+            self.turn_summary.append(self.tp_with_emoji(p1play.counter_msg, True))
             self.turn_summary.append(
                 f"-- {self.p2.name} is braced to counter, but the attack goes wide!"
             )
         elif p1counter and p2attacked and not p2success:
-            self.turn_summary.append(self.tp(p2play.counter_msg, False))
+            self.turn_summary.append(self.tp_with_emoji(p2play.counter_msg, False))
             self.turn_summary.append(
                 f"-- {self.p1.name} is braced to counter, but the attack goes wide!"
             )
         # p1 hit
         elif p1success:
             if p2attacked:
-                self.turn_summary.append(self.tp(p2play.miss_msg, False))
-            self.turn_summary.append(self.tp(p1play.success_msg, True))
+                self.turn_summary.append(self.tp_with_emoji(p2play.miss_msg, False))
+            self.turn_summary.append(self.tp_with_emoji(p1play.success_msg, True))
             self.p2.take_hit()
         # p2 hit
         elif p2success:
             if p1attacked:
-                self.turn_summary.append(self.tp(p1play.miss_msg, True))
-            self.turn_summary.append(self.tp(p2play.success_msg, False))
+                self.turn_summary.append(self.tp_with_emoji(p1play.miss_msg, True))
+            self.turn_summary.append(self.tp_with_emoji(p2play.success_msg, False))
             self.p1.take_hit()
         # if nobody hit, still need to print misses
         elif not p1success and not p2success:
             if p1attacked:
-                self.turn_summary.append(self.tp(p1play.miss_msg, True))
+                self.turn_summary.append(self.tp_with_emoji(p1play.miss_msg, True))
             if p2attacked:
-                self.turn_summary.append(self.tp(p2play.miss_msg, False))
+                self.turn_summary.append(self.tp_with_emoji(p2play.miss_msg, False))
 
         # special used handling isn't necessary because it's done at point of move choice
 
@@ -305,7 +305,7 @@ class GameState:
                 f"p1 stance is now {self.p1.stance} due to a stance change attack"
             )
             self.turn_summary.append(
-                f"{self.p1.name}'s technique leaves them in {self.p1.stance.value} stance."
+                f"{self.p1.emoji} {self.p1.name}'s technique leaves them in {self.p1.stance.value} stance."
             )
         if p2attacked and p2play.changes_stance:
             self.p2.stance = (Stance.HEAVEN if self.p2.stance is Stance.EARTH
@@ -314,7 +314,7 @@ class GameState:
                 f"p2 stance is now {self.p2.stance} due to a stance change attack"
             )
             self.turn_summary.append(
-                f"{self.p2.name}'s technique leaves them in {self.p2.stance.value} stance."
+                f"{self.p2.emoji} {self.p2.name}'s technique leaves them in {self.p2.stance.value} stance."
             )
 
         if not is_first_half_of_turn:
@@ -334,6 +334,11 @@ class GameState:
                                             "{other_stance}",
                                             other_stance.value).replace(
                                                 "{stance}", a.stance.value))
+
+    def tp_with_emoji(self, template_string, is_p1):
+        a = self.p1 if is_p1 else self.p2
+        processed_msg = self.tp(template_string, is_p1)
+        return f"{a.emoji} {processed_msg}"
 
     def does_attack_succeed(self, is_p1, card):
         print(
@@ -378,7 +383,7 @@ class GameState:
     def append_movement_to_summary(self, player, play):
         if play:
             is_p1 = player is self.p1
-            movement_msg = self.tp(play.msg, is_p1)
+            movement_msg = self.tp_with_emoji(play.msg, is_p1)
             board_state = self.get_board_state_string()
             self.turn_summary.append(f"{movement_msg} {board_state}")
 
