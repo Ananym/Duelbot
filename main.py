@@ -157,6 +157,7 @@ async def check_configured_channel(interaction: discord.Interaction) -> bool:
 @bot.tree.command(name="rules", description="Show the rules of the duel")
 @is_configured_channel()
 async def rules(interaction: discord.Interaction):
+    logger.info(f"Rules requested in channel {interaction.channel_id}")
     await interaction.response.send_message(content=rules_txt, ephemeral=False)
 
 
@@ -167,6 +168,7 @@ async def accept(interaction: discord.Interaction):
     channel_id = interaction.channel_id
     challenge = consume_newest_challenge_for_user(interaction.user)
     if challenge:
+        logger.info(f"Challenge accepted in channel {channel_id}")
         await interaction.response.send_message("Duel confirmed!",
                                                 ephemeral=True)
         game_state = GameState(
@@ -178,6 +180,7 @@ async def accept(interaction: discord.Interaction):
         )
         ongoing_matches[channel_id] = game_state
         await game_state.run_until_end()
+        logger.info(f"Game cleanup completed for channel {channel_id}")
         del ongoing_matches[channel_id]
     else:
         await interaction.response.send_message(
@@ -206,6 +209,7 @@ async def challenge(interaction: discord.Interaction,
 
     challenge = consume_existing_challenge(opponent, interaction.user)
     if challenge:
+        logger.info(f"Cross-challenge accepted in channel {channel_id}")
         await interaction.response.send_message("Challenge accepted!",
                                                 ephemeral=True)
         game_state = GameState(
@@ -219,56 +223,19 @@ async def challenge(interaction: discord.Interaction,
         try:
             await game_state.run_until_end()
         except Exception as e:
-            logger.error(f"Error running game: {e}")
+            logger.error(f"Game error in channel {channel_id}: {e}")
             await interaction.channel.send(
                 content="Error while running duel - aborted.")
         finally:
+            logger.info(f"Game cleanup completed for channel {channel_id}")
             del ongoing_matches[channel_id]
     else:
+        logger.info(f"Challenge issued in channel {channel_id}")
         add_new_challenge(interaction, opponent)
         await interaction.response.send_message(
             f"{interaction.user.mention} has challenged {opponent.mention} to a samurai duel! {opponent.mention}, use /accept to accept.",
             ephemeral=False,
         )
-
-
-# @bot.tree.command(name="forfeit", description="Forfeit the current game")
-# @is_configured_channel()
-# async def forfeit(interaction: discord.Interaction):
-#     channel_id = interaction.channel_id
-#     if channel_id not in ongoing_matches:
-#         await interaction.response.send_message(
-#             "There is no ongoing game in this channel.", ephemeral=True
-#         )
-#         return
-
-#     game = ongoing_matches[channel_id]
-#     if interaction.user not in [game.player1, game.player2]:
-#         await interaction.response.send_message(
-#             "You are not part of the ongoing game.", ephemeral=True
-#         )
-#         return
-
-#     winner = game.player2 if interaction.user == game.player1 else game.player1
-#     forfeit_message = f"{interaction.user.mention} has forfeited the match."
-
-#     # Update stats
-#     db_handler.update_stats(winner.id, interaction.guild.id, True)
-#     db_handler.update_stats(interaction.user.id, interaction.guild.id, False)
-
-#     # End the game
-#     await game.end_game(forfeit_message)
-
-#     # Clean up
-#     del ongoing_matches[channel_id]
-#     if channel_id in player_timeouts:
-#         for task in player_timeouts[channel_id].values():
-#             task.cancel()
-#         del player_timeouts[channel_id]
-
-#     await interaction.response.send_message(
-#         "You have forfeited the game.", ephemeral=True
-#     )
 
 
 @bot.tree.command(name="setemoji",
@@ -279,6 +246,7 @@ async def set_emoji(interaction: discord.Interaction, emoji: str):
         await interaction.response.send_message(
             "Please provide an emoji to set as your champion.", ephemeral=True)
         return
+    logger.info(f"Player emoji updated in channel {interaction.channel_id}")
     db.set_player_emoji(interaction.user.id, emoji)
     await interaction.response.send_message(
         f"Your champion has been set to {emoji}.", ephemeral=True)

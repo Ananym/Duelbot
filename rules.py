@@ -2,7 +2,10 @@ rules_txt = """
 
 **Kiri-ai: The Duel:**
 
-	• Players start with 2 HP, a randomly assigned secret special card
+Game Designer: Kamibayashi
+Publishers: Mugen Gaming (JP), Lucky Duck Games (US)
+
+	• Players start with 2 HP and a randomly assigned secret special card
 	• Players can swap between Heaven and Earth stance, beginning in Heaven
 	• Each turn, players play two cards from their hand
 	• Both players' first cards are resolved in the first half of the turn
@@ -32,4 +35,5 @@ rules_txt = """
 **Movement cards:**
 	• Footwork: Move one step forward or backward
 	• Tactics: Either charge forward 2 cells or change stance
+
 """

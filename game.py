@@ -9,6 +9,7 @@ from awaitable_view import AwaitableView
 from itertools import chain
 import player_emoji
 import logging
+import os
 from cards import (
     special_attack_cards,
     counter,
@@ -23,6 +24,12 @@ from cards import (
 )
 
 logger = logging.getLogger("game")
+DEBUG_CHANNEL_ID = int(os.environ.get("DEBUG_CHANNEL_ID", "0"))
+
+def debug_log(game_instance, message):
+    """Log debug messages only for the configured debug channel"""
+    if game_instance.channel.id == DEBUG_CHANNEL_ID:
+        logger.debug(message)
 
 p1move_emoji_dict = {
     0: "🔁",
@@ -94,7 +101,8 @@ class GameState:
         )
 
     async def run_until_end(self):
-        print(f"Started duel between {self.p1.name} and {self.p2.name}")
+        logger.info(f"Game started in channel {self.channel.id}")
+        debug_log(self, f"Started duel between {self.p1.name} and {self.p2.name}")
         gameResult = None
         while gameResult is None:
             gameResult = await self.start_turn()
@@ -125,7 +133,7 @@ class GameState:
         self.turn += 1
         self.turn_summary.append(f"**=== Turn {self.turn} ===**")
 
-        print([self.symbol_for_cell(i) for i in range(self.board_size)])
+        debug_log(self, f"Board state: {[self.symbol_for_cell(i) for i in range(self.board_size)]}")
 
         board = self.get_board_state_string()
         msg += f"{board}\n\n"
@@ -173,8 +181,8 @@ class GameState:
             await self.end_game(gameResult)
             return gameResult
 
-        print(f"p1 is playing  {[c.name for c in self.p1.chosen_plays]}")
-        print(f"p2 is playing  {[c.name for c in self.p2.chosen_plays]}")
+        debug_log(self, f"p1 playing: {[c.name for c in self.p1.chosen_plays]}")
+        debug_log(self, f"p2 playing: {[c.name for c in self.p2.chosen_plays]}")
 
         self.resolve_plays(True)
 
@@ -196,21 +204,25 @@ class GameState:
         gr = gameResult
 
         if gr.timeout and not gr.winner:
+            logger.info(f"Game in channel {self.channel.id} ended - double timeout")
             db.record_double_timeout(self.p1.member, self.p2.member)
             await self.channel.send(
                 f"{self.p1.emoji} {self.p1.mention} and {self.p2.emoji}{self.p2.mention} both timed out!  Nobody wins."
             )
         elif gr.timeout and gr.winner:
+            logger.info(f"Game in channel {self.channel.id} ended - timeout victory")
             db.record_game_win(gr.winner.member, gr.loser.member)
             await self.channel.send(
                 f"{gr.loser.emoji} {gr.loser.mention} hesitated too long - {gr.winner.emoji}{gr.winner.mention} takes the win!"
             )
         elif gr.forfeit:
+            logger.info(f"Game in channel {self.channel.id} ended - forfeit")
             db.record_game_win(gr.winner.member, gr.loser.member)
             await self.channel.send(
                 f"{gr.loser.emoji} {gr.loser.mention} forfeited! {gr.winner.emoji}{gr.winner.mention} takes the win!"
             )
         else:
+            logger.info(f"Game in channel {self.channel.id} ended - victory")
             db.record_game_win(gr.winner.member, gr.loser.member)
             await self.game_state_msg.edit(
                 content=self.make_game_state_message())
@@ -223,7 +235,7 @@ class GameState:
         p1play = self.p1.chosen_plays[chosen_play_index]
         p2play = self.p2.chosen_plays[chosen_play_index]
 
-        print(f"Resolving {p1play.name} and {p2play.name}")
+        debug_log(self, f"Resolving {p1play.name} vs {p2play.name}")
 
         self.resolve_movement(p1play, p2play)
 
@@ -235,9 +247,7 @@ class GameState:
         p1success = p1attacked and self.does_attack_succeed(True, p1play)
         p2success = p2attacked and self.does_attack_succeed(False, p2play)
 
-        print(
-            f"p1attacked: {p1attacked}, p2attacked: {p2attacked}, p1play: {p1play.name}, p2play: {p2play.name}, p1counter: {p1counter}, p2counter: {p2counter}, p1success: {p1success}, p2success: {p2success}"
-        )
+        debug_log(self, f"Attack resolution - p1: {p1play.name}{'(hit)' if p1success else '(miss)'}, p2: {p2play.name}{'(hit)' if p2success else '(miss)'}")
 
         # clash
         if p1success and p2success:
@@ -301,18 +311,14 @@ class GameState:
         if p1attacked and p1play.changes_stance:
             self.p1.stance = (Stance.HEAVEN if self.p1.stance is Stance.EARTH
                               else Stance.EARTH)
-            print(
-                f"p1 stance is now {self.p1.stance} due to a stance change attack"
-            )
+            debug_log(self, f"p1 stance changed to {self.p1.stance}")
             self.turn_summary.append(
                 f"{self.p1.emoji} {self.p1.name}'s technique leaves them in {self.p1.stance.value} stance."
             )
         if p2attacked and p2play.changes_stance:
             self.p2.stance = (Stance.HEAVEN if self.p2.stance is Stance.EARTH
                               else Stance.EARTH)
-            print(
-                f"p2 stance is now {self.p2.stance} due to a stance change attack"
-            )
+            debug_log(self, f"p2 stance changed to {self.p2.stance}")
             self.turn_summary.append(
                 f"{self.p2.emoji} {self.p2.name}'s technique leaves them in {self.p2.stance.value} stance."
             )
@@ -341,24 +347,14 @@ class GameState:
         return f"{a.emoji} {processed_msg}"
 
     def does_attack_succeed(self, is_p1, card):
-        print(
-            f"Checking if {'p1' if is_p1 else 'p2'} hits successfully with {card.name}"
-        )
         if is_p1:
             hit_cells = [c + self.p1.cell for c in card.hits_cells]
-            print(
-                f"p1 in {self.p1.cell} used {card.name} hitting {hit_cells} which {'does' if self.p2.cell in hit_cells else 'does not'} hit {self.p2.name} in {self.p2.cell}"
-            )
             return self.p2.cell in hit_cells
         else:
             hit_cells = [self.p2.cell - c for c in card.hits_cells]
-            print(
-                f"p2 in {self.p2.cell} used {card.name} hitting {hit_cells} which {'does' if self.p1.cell in hit_cells else 'does not'} hit {self.p1.name} in {self.p1.cell}"
-            )
             return self.p1.cell in hit_cells
 
     def clamp(self, index, min_val, max_val):
-        # print(f"Clamping index {index} between {min_val} and {max_val}")
         return min((max(min_val, index)), max_val)
 
     def moves_would_pass(self, p1vector, p2vector):
@@ -396,9 +392,7 @@ class GameState:
         p2change_stance = p2play is change_stance
         players_started_in_same_cell = self.p1.cell == self.p2.cell
 
-        print(
-            f"Resolving movement: p1: {p1move.name if p1move else None}, p2: {p2move.name if p2move else None}, p1magnitude: {p1magnitude}, p2magnitude: {p2magnitude}"
-        )
+        debug_log(self, f"Movement: p1={p1move.name if p1move else 'none'}, p2={p2move.name if p2move else 'none'}")
 
         # Different stances: Heaven always moves first
         if self.p1.stance != self.p2.stance:
@@ -409,18 +403,14 @@ class GameState:
                 if p1change_stance:
                     self.p1.stance = (Stance.HEAVEN if self.p1.stance
                                       is Stance.EARTH else Stance.EARTH)
-                    print(
-                        f"p1 stance is now {self.p1.stance} due to a change stance action"
-                    )
+                    debug_log(self, f"p1 stance changed to {self.p1.stance}")
                 self.append_movement_to_summary(self.p1, p1move)
                 self.p2.cell = self.clamp(self.p2.cell - p2magnitude,
                                           self.p1.cell, self.board_size - 1)
                 if p2change_stance:
                     self.p2.stance = (Stance.HEAVEN if self.p2.stance
                                       is Stance.EARTH else Stance.EARTH)
-                    print(
-                        f"p2 stance is now {self.p2.stance} due to a change stance action"
-                    )
+                    debug_log(self, f"p2 stance changed to {self.p2.stance}")
                 self.append_movement_to_summary(self.p2, p2move)
             else:
                 # p2 moves first
@@ -429,18 +419,14 @@ class GameState:
                 if p2change_stance:
                     self.p2.stance = (Stance.HEAVEN if self.p2.stance
                                       is Stance.EARTH else Stance.EARTH)
-                    print(
-                        f"p2 stance is now {self.p2.stance} due to a change stance action"
-                    )
+                    debug_log(self, f"p2 stance changed to {self.p2.stance}")
                 self.append_movement_to_summary(self.p2, p2move)
                 self.p1.cell = self.clamp(self.p1.cell + p1magnitude, 0,
                                           self.p2.cell)
                 if p1change_stance:
                     self.p1.stance = (Stance.HEAVEN if self.p1.stance
                                       is Stance.EARTH else Stance.EARTH)
-                    print(
-                        f"p1 stance is now {self.p1.stance} due to a change stance action"
-                    )
+                    debug_log(self, f"p1 stance changed to {self.p1.stance}")
                 self.append_movement_to_summary(self.p1, p1move)
         else:
             # Same stance: check action priority (Charge > Approach/Retreat > Change Stance)
@@ -455,18 +441,14 @@ class GameState:
                 if p1change_stance:
                     self.p1.stance = (Stance.HEAVEN if self.p1.stance
                                       is Stance.EARTH else Stance.EARTH)
-                    print(
-                        f"p1 stance is now {self.p1.stance} due to a change stance action"
-                    )
+                    debug_log(self, f"p1 stance changed to {self.p1.stance}")
                 self.append_movement_to_summary(self.p1, p1move)
                 self.p2.cell = self.clamp(self.p2.cell - p2magnitude,
                                           self.p1.cell, self.board_size - 1)
                 if p2change_stance:
                     self.p2.stance = (Stance.HEAVEN if self.p2.stance
                                       is Stance.EARTH else Stance.EARTH)
-                    print(
-                        f"p2 stance is now {self.p2.stance} due to a change stance action"
-                    )
+                    debug_log(self, f"p2 stance changed to {self.p2.stance}")
                 self.append_movement_to_summary(self.p2, p2move)
             elif p2priority > p1priority:
                 # p2 has higher priority, moves first
@@ -475,18 +457,14 @@ class GameState:
                 if p2change_stance:
                     self.p2.stance = (Stance.HEAVEN if self.p2.stance
                                       is Stance.EARTH else Stance.EARTH)
-                    print(
-                        f"p2 stance is now {self.p2.stance} due to a change stance action"
-                    )
+                    debug_log(self, f"p2 stance changed to {self.p2.stance}")
                 self.append_movement_to_summary(self.p2, p2move)
                 self.p1.cell = self.clamp(self.p1.cell + p1magnitude, 0,
                                           self.p2.cell)
                 if p1change_stance:
                     self.p1.stance = (Stance.HEAVEN if self.p1.stance
                                       is Stance.EARTH else Stance.EARTH)
-                    print(
-                        f"p1 stance is now {self.p1.stance} due to a change stance action"
-                    )
+                    debug_log(self, f"p1 stance changed to {self.p1.stance}")
                 self.append_movement_to_summary(self.p1, p1move)
             else:
                 # Same priority: simultaneous movement
@@ -505,9 +483,7 @@ class GameState:
                     if p1change_stance:
                         self.p1.stance = (Stance.HEAVEN if self.p1.stance
                                           is Stance.EARTH else Stance.EARTH)
-                        print(
-                            f"p1 stance is now {self.p1.stance} due to a change stance action"
-                        )
+                        debug_log(self, f"p1 stance changed to {self.p1.stance}")
                     self.append_movement_to_summary(self.p1, p1move)
                     self.p2.cell = self.clamp(self.p2.cell - p2magnitude,
                                               self.p1.cell,
@@ -515,9 +491,7 @@ class GameState:
                     if p2change_stance:
                         self.p2.stance = (Stance.HEAVEN if self.p2.stance
                                           is Stance.EARTH else Stance.EARTH)
-                        print(
-                            f"p2 stance is now {self.p2.stance} due to a change stance action"
-                        )
+                        debug_log(self, f"p2 stance changed to {self.p2.stance}")
                     self.append_movement_to_summary(self.p2, p2move)
 
         if self.p1.cell == self.p2.cell and not players_started_in_same_cell:
@@ -537,7 +511,7 @@ class GameState:
             elif play in tactics.actions:
                 return tactics
             else:
-                print(f"Unknown card played first for player {player.name}")
+                logger.warning(f"Unknown card played in channel {self.channel.id}")
                 return None
 
     def make_play_selection_view(self, player, will_switch_stance, is_p1):
@@ -577,7 +551,7 @@ class GameState:
         available_move_actions = list(
             chain(*[move.actions for move in available_move_cards]))
         available_move_actions.sort()
-        print([c.button_text for c in available_move_actions])
+        debug_log(self, f"Available moves: {[c.button_text for c in available_move_actions]}")
 
         available_plays = available_attack_cards + available_move_actions
 
