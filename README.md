@@ -4,6 +4,8 @@ A Discord bot that implements Kiri-ai (https://boardgamegeek.com/boardgame/38776
 
 Add it to your server here: https://discord.com/oauth2/authorize?client_id=1160688239577931796&permissions=2048&integration_type=0&scope=bot+applications.commands
 
+Game Designer: Kamibayashi
+Publishers: Mugen Gaming (JP), Lucky Duck Games (US)
 
 ## Features
 
